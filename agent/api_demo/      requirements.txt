@@ -1,0 +1,2 @@
+assemblyline_client
+python-dotenv
