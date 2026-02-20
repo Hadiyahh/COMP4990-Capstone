@@ -6,6 +6,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # edit .env with your real AL_HOST/AL_USER/AL_APIKEY
+
 Submit API demo
 python submit_demo.py /path/to/file.pptx
 Fetch results by SID
@@ -20,30 +21,10 @@ Terminal 2:
 
 python ingest_sender.py /path/to/file.pptx
 
----
-
-# How this maps to what the docs taught you
-- `client.py` = “Connecting to Assemblyline”
-- `submit_demo.py` = “Submit”
-- `ingest_sender.py` + `ingest_receiver.py` = “Ingest with notification queue”
-- `fetch_submission.py` = “Submission details”
-
-So yes: you’re literally implementing the docs, but in a clean project.
-
----
-
-## One important reality check
-The **exact shape** of:
-- the `submit()` response
-- the notification message from `nq`
-can vary.
-
-That’s why `ingest_receiver.py` prints the raw message first.
 
 ____________________________________________________________________________________________________
 EXPLANATION 
 
-built and tested an agent/api_demo module that proves we can talk to our local Assemblyline instance through the API.
 
 What works end-to-end now:
 
