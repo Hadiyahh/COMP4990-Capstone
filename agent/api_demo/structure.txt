@@ -1,0 +1,65 @@
+COMP4990-Capstone/
+  agent/
+    app/
+      main.py
+      fsm.py
+      models.py
+      explain.py
+      auditlog.py
+
+      al/                      # NEW: everything Assemblyline API-related lives here
+        __init__.py
+        config.py              # loads env vars (AL_HOST, AL_USER, AL_APIKEY, verify)
+        client.py              # get_client(...) wrapper
+        submit.py              # submit(path) helper
+        ingest.py              # ingest(path, nq) helper
+        receiver.py            # listen on nq, fetch results
+        parse_result.py        # convert "submission/full" -> your app's model
+
+      adapters/                # NEW: translate external -> internal
+        __init__.py
+        storage.py             # write results to DB/file, etc.
+        notifier.py            # optional: websocket/queue hooks later
+
+      utils/
+        __init__.py
+        paths.py
+        logging.py
+
+    scripts/                   # NEW: runnable demos for you and teammates
+      submit_file.py
+      ingest_file.py
+      listen_queue.py
+      fetch_submission.py
+
+    tests/
+      test_parse_result.py
+
+    Dockerfile
+    requirements.txt
+
+  dashboard/
+    app.py
+    Dockerfile
+    requirements.txt
+
+  data/
+    docs/
+      architecture.md
+      demo-script.md
+      api-notes.md            # NEW: explain endpoints + flow in your words
+    samples/
+      benign.txt
+      suspicious_simulated.bin
+
+  deployments/
+    assemblyline/             # if you want the docker compose stuff in-repo
+      docker-compose.yml
+      config/
+      README.md
+
+  .env.example                # NEW: one place for env docs (don’t commit .env)
+  .gitignore
+  docker-compose.yml
+  README.md
+  LICENSE
