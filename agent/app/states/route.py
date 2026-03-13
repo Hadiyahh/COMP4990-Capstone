@@ -57,19 +57,25 @@ def handle_route(context: StateContext) -> StateContext:
     entropy = context.risk_profile.entropy or 0
     file_type = context.risk_profile.file_type or ""
     yara_hits = context.risk_profile.yara_hits or []
+    yara_hit_count = len(yara_hits)
+    has_definitive = context.risk_profile.metadata_summary.get("has_definitive_signature", False) if context.risk_profile.metadata_summary else False
     
     # Apply routing rules
     routing_decision = None
     rationale = ""
     reasons = []
     
-    # Check for HUMAN_REVIEW conditions
-    if risk_score >= 75:
+    # HUMAN_REVIEW conditions (highest priority)
+    # Bucket: Definitive signature OR 4+ YARA hits
+    if has_definitive:
         routing_decision = RoutingDecision.HUMAN_REVIEW
-        reasons.append(f"High risk score: {risk_score:.1f}")
-    elif yara_hits:
+        reasons.append("Definitive malware signature detected")
+    elif yara_hit_count >= 4:
         routing_decision = RoutingDecision.HUMAN_REVIEW
-        reasons.append(f"YARA matches detected: {', '.join(yara_hits)}")
+        reasons.append(f"High malware indicators: {yara_hit_count} YARA rules triggered")
+    elif risk_score >= 75:
+        routing_decision = RoutingDecision.HUMAN_REVIEW
+        reasons.append(f"Very high risk score: {risk_score:.1f}")
     elif entropy > 7.5:
         routing_decision = RoutingDecision.HUMAN_REVIEW
         reasons.append(f"Very high entropy: {entropy:.2f} (possibly encrypted/compressed)")
@@ -77,7 +83,11 @@ def handle_route(context: StateContext) -> StateContext:
         routing_decision = RoutingDecision.HUMAN_REVIEW
         reasons.append("Unknown file type detected")
     
-    # Check for DEEP analysis conditions
+    # DEEP analysis conditions (medium priority)
+    # Bucket: 1-3 YARA hits (suspicious but not conclusive)
+    elif 1 <= yara_hit_count <= 3:
+        routing_decision = RoutingDecision.DEEP
+        reasons.append(f"Suspicious indicators: {yara_hit_count} YARA rules triggered (sneaky behavior)")
     elif 25 <= risk_score < 75:
         routing_decision = RoutingDecision.DEEP
         reasons.append(f"Medium risk score: {risk_score:.1f} requires comprehensive analysis")
@@ -85,10 +95,11 @@ def handle_route(context: StateContext) -> StateContext:
         routing_decision = RoutingDecision.DEEP
         reasons.append(f"Moderate entropy: {entropy:.2f} (potentially suspicious)")
     
-    # Otherwise, FAST analysis
+    # FAST analysis (lowest priority)
+    # Bucket: 0 YARA hits + low risk
     else:
         routing_decision = RoutingDecision.FAST
-        reasons.append(f"Low risk score: {risk_score:.1f}")
+        reasons.append(f"Low risk: {yara_hit_count} YARA hits, score {risk_score:.1f}")
         if entropy < 4.0:
             reasons.append(f"Low entropy: {entropy:.2f}")
     

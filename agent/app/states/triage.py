@@ -79,21 +79,29 @@ def detect_file_type(filename: str, content: bytes) -> str:
         return mime_map.get(ext, f"application/{ext}")
 
 
-def check_yara_rules(content: bytes, filename: str) -> list:
+def check_yara_rules(content: bytes, filename: str) -> dict:
     """
-    Check against YARA rules (placeholder for actual YARA integration).
+    Check against YARA rules (architecture ready for integration).
     
     Args:
         content: File bytes
         filename: File name
         
     Returns:
-        List of matching YARA rule names
+        Dictionary with:
+            - hits: List of matching YARA rule names
+            - hit_count: Total number of rules triggered
+            - has_definitive: Boolean if definitive malware signature found
     """
-    # TODO: Integrate actual YARA rule engine
-    # For now, return empty list as placeholder
-    # In production: compile YARA rules and scan content
-    return []
+    # TODO: Integrate YARA rule scanning when rules are available
+    # from ..rules import CORE_RULES, SUPPLEMENTARY_RULES
+    # Then load and compile rules here
+    
+    return {
+        "hits": [],
+        "hit_count": 0,
+        "has_definitive": False
+    }
 
 
 def query_external_apis(file_hash: str) -> dict:
@@ -136,23 +144,39 @@ def handle_triage(context: StateContext) -> StateContext:
     file_type = detect_file_type(context.filename, context.file_content)
     
     # Check YARA rules
-    yara_hits = check_yara_rules(context.file_content, context.filename)
+    yara_results = check_yara_rules(context.file_content, context.filename)
+    yara_hits = yara_results["hits"]
+    yara_hit_count = yara_results["hit_count"]
+    has_definitive = yara_results["has_definitive"]
     
     # Query external APIs
     metadata = query_external_apis(context.file_hash)
     
-    # Calculate initial risk score (0-100)
-    # High entropy (>7.5) and unknown file types suggest suspicious files
+    # Calculate initial risk score (0-100
     initial_risk_score = 0.0
     
+    # YARA-based risk scoring
+    if has_definitive:
+        # Definitive malware signature found
+        initial_risk_score = 80.0
+    elif yara_hit_count >= 4:
+        # 4+ rules triggered = highly suspicious
+        initial_risk_score = 70.0
+    elif yara_hit_count >= 1:
+        # 1-3 rules triggered = moderately suspicious
+        initial_risk_score = 40.0
+    
+    # Entropy-based scoring (supplementary)
     if entropy > 7.5:  # High compression/encryption
-        initial_risk_score += 30
+        initial_risk_score += 20
+    
+    # File type scoring
     if "octet-stream" in file_type or "unknown" in file_type:
-        initial_risk_score += 20
-    if yara_hits:
-        initial_risk_score += 50
+        initial_risk_score += 10
+    
+    # External metadata scoring
     if metadata.get("virustotal_detections", 0) > 0:
-        initial_risk_score += 20
+        initial_risk_score += 10
     
     # Cap at 100
     initial_risk_score = min(initial_risk_score, 100)
@@ -164,7 +188,11 @@ def handle_triage(context: StateContext) -> StateContext:
         file_size=len(context.file_content),
         yara_hits=yara_hits,
         initial_risk_score=initial_risk_score,
-        metadata_summary=metadata
+        metadata_summary={
+            **metadata,
+            "yara_hit_count": yara_hit_count,
+            "has_definitive_signature": has_definitive
+        }
     )
     
     # Update StateContext
