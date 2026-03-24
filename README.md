@@ -11,6 +11,7 @@ and marks escalated cases as pending_human_review for analyst follow-up.
 - dashboard/: Streamlit audit dashboard
 - data/samples/: test files
 - data/logs/: JSONL audit logs
+- data/docs/testing-playbook.md: step-by-step test commands and output/file explanations
 - agent/triage_rules.yar: YARA rules used during triage
 
 ## End-to-End Pipeline Stages
