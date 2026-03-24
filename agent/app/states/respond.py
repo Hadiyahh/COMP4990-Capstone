@@ -45,6 +45,18 @@ def determine_recommendation(final_risk_score: float, confidence_level: str) -> 
         return Recommendation.IGNORE
 
 
+def should_escalate_to_human(context: StateContext) -> bool:
+    """Escalate high-risk route or uncertain medium/high outcomes for analyst review."""
+    if context.routing_decision and context.routing_decision.value == "HUMAN_REVIEW":
+        return True
+
+    confidence = context.confidence_level.value if context.confidence_level else "Uncertain"
+    if confidence == "Uncertain" and (context.final_risk_score or 0) >= 50:
+        return True
+
+    return False
+
+
 def build_final_report(context: StateContext) -> dict:
     """
     Build comprehensive final report with full audit trail.
@@ -76,7 +88,8 @@ def build_final_report(context: StateContext) -> dict:
                 "initial_risk_score": context.risk_profile.initial_risk_score if context.risk_profile else None
             },
             "routing_decision": context.routing_decision.value if context.routing_decision else None,
-            "routing_rationale": context.routing_rationale
+            "routing_rationale": context.routing_rationale,
+            "analysis_policy": context.analysis_config,
         },
         "scoring_details": context.scoring_details,
         "timestamps": {
@@ -115,7 +128,9 @@ def build_dashboard_update(context: StateContext) -> dict:
         "recommendation": context.recommendation.value if context.recommendation else None,
         "confidence": context.confidence_level.value if context.confidence_level else None,
         "timestamp": context.completed_at.isoformat() if context.completed_at else None,
-        "routing_path": context.routing_decision.value if context.routing_decision else None
+        "routing_path": context.routing_decision.value if context.routing_decision else None,
+        "policy_id": context.analysis_config.get("policy_id") if context.analysis_config else None,
+        "escalated": should_escalate_to_human(context),
     }
 
 
@@ -142,9 +157,11 @@ def handle_respond(context: StateContext) -> dict:
         context.confidence_level.value if context.confidence_level else "Uncertain"
     )
     
+    escalated = should_escalate_to_human(context)
+
     # Update context
     context.recommendation = recommendation
-    context.status = "complete"
+    context.status = "pending_human_review" if escalated else "complete"
     
     # Build reports
     final_report = build_final_report(context)
@@ -154,5 +171,6 @@ def handle_respond(context: StateContext) -> dict:
         "recommendation": recommendation.value,
         "final_report": final_report,
         "dashboard_update": dashboard_update,
-        "status": "complete"
+        "status": context.status,
+        "escalated": escalated,
     }

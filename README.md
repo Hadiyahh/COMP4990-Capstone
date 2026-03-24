@@ -2,6 +2,8 @@
 
 SentinelLine is a lightweight malware triage layer on top of Assemblyline.
 It accepts uploaded files, runs an FSM pipeline, records audit events, and returns a final recommendation.
+It now uses an explicit route-to-policy map (FAST, DEEP, HUMAN_REVIEW), submits that policy to Assemblyline,
+and marks escalated cases as pending_human_review for analyst follow-up.
 
 ## What Is In This Repository
 
@@ -26,10 +28,18 @@ Every file goes through these states in order:
 3. route
 - Chooses routing decision based on triage output
 - Typical routes: FAST, DEEP, HUMAN_REVIEW
+- Resolves route to explicit policy fields (policy_id, timeout, deep_scan, services)
 
 4. submit
 - Authenticates to Assemblyline
 - Submits file to POST /api/v4/submit/
+- Sends policy-driven payload fields:
+	- timeout
+	- deep_scan
+	- extra_services
+	- analysis_type
+	- services.selected (optional services.excluded)
+	- metadata with SentinelLine route/policy IDs
 
 5. wait
 - Polls Assemblyline submission status
@@ -41,6 +51,34 @@ Every file goes through these states in order:
 7. respond
 - Returns final API response to caller
 - Writes dashboard-ready summary data
+- Marks escalated cases as pending_human_review
+
+## Route To Policy Mapping
+
+SentinelLine makes route behavior explicit through a single policy map:
+
+- FAST
+	- policy_id: STATIC_OFFLINE
+	- timeout: 60
+	- deep_scan: false
+	- extra_services: []
+	- selected_services: []
+
+- DEEP
+	- policy_id: DYNAMIC_OFFLINE
+	- timeout: 600
+	- deep_scan: true
+	- extra_services: ["yara", "pe_recommendations"]
+	- selected_services: ["Antivirus", "Extraction", "Static Analysis"]
+
+- HUMAN_REVIEW
+	- policy_id: ESCALATED
+	- timeout: 1800
+	- deep_scan: true
+	- extra_services: ["yara", "pe_recommendations", "code_analysis"]
+	- selected_services: ["Antivirus", "Extraction", "Static Analysis"]
+
+This means route labels are now tied to concrete submission behavior and audit metadata.
 
 ## Requirements
 
@@ -129,6 +167,7 @@ What this does:
 - Generates a tab-delimited per-job summary and final report with:
 	- total jobs
 	- pass/fail counts
+	- pass includes both complete and pending_human_review statuses
 	- pass rate
 	- latency p50 and p95
 	- route distribution
@@ -151,11 +190,14 @@ bash scripts/stress_queue.sh --url http://localhost:8000/submit --concurrency 6 
 
 You should see:
 
-- status: complete
+- status: complete OR pending_human_review
 - recommendation: value returned from scoring
 - final_report.analysis_summary.routing_decision
+- final_report.analysis_summary.analysis_policy.policy_id
 - final_report.analysis_summary.initial_risk_profile.yara_hits
 - final_report.audit_trail.states_visited including all FSM states
+
+For escalated paths, logs include ESCALATED events and the dashboard lists those samples under Needs Analyst Review.
 
 Expected behavior:
 
@@ -194,24 +236,4 @@ If running local agent on port 8000, test with:
 curl -F "file=@/home/arifh/COMP4990-Capstone/data/samples/benign.txt" http://localhost:8000/submit
 ```
 
-## Troubleshooting
 
-1. 401 Unauthorized
-- Credentials or API key format is incorrect.
-
-2. 403 Invalid XSRF token
-- Session login is required before protected API calls.
-
-3. 400 Bad Request on submit
-- Assemblyline expects upload field name bin for /api/v4/submit/.
-
-4. Dashboard is empty
-- Confirm data/logs has JSONL files and volume mount is active.
-
-5. Compose warning about version
-- version key is ignored by Compose v2; warning is harmless.
-
-## License
-
-See LICENSE.
-1

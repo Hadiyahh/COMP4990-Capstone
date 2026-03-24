@@ -196,7 +196,7 @@ else:
                       .get("initial_risk_profile", {})
                       .get("yara_hits", [])))
         yara_count = str(len(yara_hits))
-        passed = "yes" if status == "complete" else "no"
+        passed = "yes" if status in {"complete", "pending_human_review"} else "no"
         if passed == "no":
             error = f"status_{status or 'missing'}"
     except Exception as exc:
