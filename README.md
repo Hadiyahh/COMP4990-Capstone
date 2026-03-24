@@ -112,6 +112,41 @@ Watch logs live:
 docker compose logs -f agent
 ```
 
+## Stress Test Queue (Multiple Files)
+
+Run a queue-based stress test that submits many files in parallel and reports pass/fail + latency stats:
+
+```bash
+cd /home/arifh/COMP4990-Capstone
+bash scripts/stress_queue.sh --concurrency 8 --repeat 5 --extra-file agent/test_payload.txt
+```
+
+What this does:
+
+- Builds a job queue from files in data/samples plus optional extra files
+- Submits jobs concurrently to POST /submit
+- Stores raw JSON responses in test_results/stress_<timestamp>/raw
+- Generates a tab-delimited per-job summary and final report with:
+	- total jobs
+	- pass/fail counts
+	- pass rate
+	- latency p50 and p95
+	- route distribution
+	- error breakdown
+
+Useful variants:
+
+```bash
+# Smaller, quick check
+bash scripts/stress_queue.sh --concurrency 2 --repeat 2
+
+# Heavier run against local default endpoint
+bash scripts/stress_queue.sh --concurrency 12 --repeat 10 --extra-file agent/test_payload.txt
+
+# Custom endpoint (if agent runs on different host/port)
+bash scripts/stress_queue.sh --url http://localhost:8000/submit --concurrency 6 --repeat 3
+```
+
 ## What A Good Response Looks Like
 
 You should see:
