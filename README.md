@@ -120,7 +120,7 @@ Set these in docker-compose.yml under agent.environment:
 
 ```yaml
 LOG_DIR: /logs
-ASSEMBLYLINE_API_URL: https://host.docker.internal
+ASSEMBLYLINE_API_URL: https://localhost/
 ASSEMBLYLINE_USERNAME: admin
 ASSEMBLYLINE_PASSWORD: admin
 ASSEMBLYLINE_API_KEY: 'key_name:key_secret'
